@@ -122,7 +122,7 @@ export const VIEWER_HTML = `
 <body>
     <div id="container">
         <div id="threejs-container"></div>
-        <div id="prompt-preview">front view, eye level, medium shot</div>
+        <div id="prompt-preview">&lt;sks&gt; front view eye-level shot medium shot</div>
         <div id="info-panel">
             <div class="param-item">
                 <div class="param-label">Horizontal</div>
@@ -146,9 +146,8 @@ export const VIEWER_HTML = `
         let state = {
             azimuth: 0,
             elevation: 0,
-            distance: 5,
-            imageUrl: null,
-            useDefaultPrompts: false
+            distance: 5.0,
+            imageUrl: null
         };
 
         let threeScene = null;
@@ -160,61 +159,11 @@ export const VIEWER_HTML = `
         const zValueEl = document.getElementById('z-value');
         const promptPreviewEl = document.getElementById('prompt-preview');
 
-        function generatePromptPreview() {
-            const h_angle = state.azimuth % 360;
-            let h_direction;
-            if (h_angle < 22.5 || h_angle >= 337.5) {
-                h_direction = "front view";
-            } else if (h_angle < 67.5) {
-                h_direction = "front-right view";
-            } else if (h_angle < 112.5) {
-                h_direction = "right side view";
-            } else if (h_angle < 157.5) {
-                h_direction = "back-right view";
-            } else if (h_angle < 202.5) {
-                h_direction = "back view";
-            } else if (h_angle < 247.5) {
-                h_direction = "back-left view";
-            } else if (h_angle < 292.5) {
-                h_direction = "left side view";
-            } else {
-                h_direction = "front-left view";
-            }
-
-            let v_direction;
-            if (state.elevation < -15) {
-                v_direction = "low angle";
-            } else if (state.elevation < 15) {
-                v_direction = "eye level";
-            } else if (state.elevation < 45) {
-                v_direction = "high angle";
-            } else if (state.elevation < 75) {
-                v_direction = "bird's eye view";
-            } else {
-                v_direction = "top-down view";
-            }
-
-            let distance;
-            if (state.distance < 2) {
-                distance = "wide shot";
-            } else if (state.distance < 4) {
-                distance = "medium-wide shot";
-            } else if (state.distance < 6) {
-                distance = "medium shot";
-            } else if (state.distance < 8) {
-                distance = "medium close-up";
-            } else {
-                distance = "close-up";
-            }
-
-            return h_direction + ", " + v_direction + ", " + distance;
-        }
-
         function generateQwenPrompt() {
             const h_angle = state.azimuth % 360;
             const v_angle = state.elevation;
 
-            // Horizontal mapping
+            // Azimuth (horizontal) - 8 directions
             let h_direction;
             if (h_angle < 22.5 || h_angle >= 337.5) {
                 h_direction = "front view";
@@ -234,19 +183,19 @@ export const VIEWER_HTML = `
                 h_direction = "front-left quarter view";
             }
 
-            // Vertical mapping for Qwen format
+            // Elevation (vertical) - 4 levels: -30°, 0°, 30°, 60°
             let v_direction;
             if (v_angle < -15) {
                 v_direction = "low-angle shot";
             } else if (v_angle < 15) {
                 v_direction = "eye-level shot";
-            } else if (v_angle < 75) {
+            } else if (v_angle < 45) {
                 v_direction = "elevated shot";
             } else {
                 v_direction = "high-angle shot";
             }
 
-            // Distance mapping
+            // Distance - 3 levels
             let distance;
             if (state.distance < 2) {
                 distance = "wide shot";
@@ -256,18 +205,14 @@ export const VIEWER_HTML = `
                 distance = "close-up";
             }
 
-            return h_direction + " " + v_direction + " " + distance;
+            return "<sks> " + h_direction + " " + v_direction + " " + distance;
         }
 
         function updateDisplay() {
             hValueEl.textContent = Math.round(state.azimuth) + '°';
             vValueEl.textContent = Math.round(state.elevation) + '°';
             zValueEl.textContent = state.distance.toFixed(1);
-            if (state.useDefaultPrompts) {
-                promptPreviewEl.textContent = generateQwenPrompt();
-            } else {
-                promptPreviewEl.textContent = generatePromptPreview();
-            }
+            promptPreviewEl.textContent = generateQwenPrompt();
         }
 
         function sendAngleUpdate() {
@@ -275,8 +220,7 @@ export const VIEWER_HTML = `
                 type: 'ANGLE_UPDATE',
                 horizontal: Math.round(state.azimuth),
                 vertical: Math.round(state.elevation),
-                zoom: Math.round(state.distance * 10) / 10,
-                useDefaultPrompts: state.useDefaultPrompts || false
+                zoom: Math.round(state.distance * 10) / 10
             }, '*');
         }
 
@@ -284,7 +228,6 @@ export const VIEWER_HTML = `
             state.azimuth = 0;
             state.elevation = 0;
             state.distance = 5.0;
-            state.useDefaultPrompts = false;
             if (threeScene) {
                 threeScene.syncFromState();
             }
@@ -478,7 +421,7 @@ export const VIEWER_HTML = `
             // Elevation Arc
             const arcPoints = [];
             for (let i = 0; i <= 32; i++) {
-                const angle = (-30 + (120 * i / 32)) * Math.PI / 180;
+                const angle = (-30 + (90 * i / 32)) * Math.PI / 180;
                 arcPoints.push(new THREE.Vector3(
                     ELEV_ARC_X,
                     ELEVATION_RADIUS * Math.sin(angle) + CENTER.y,
@@ -696,7 +639,7 @@ export const VIEWER_HTML = `
                         const relY = intersect.y - CENTER.y;
                         const relZ = intersect.z;
                         let angle = Math.atan2(relY, relZ) * (180 / Math.PI);
-                        angle = Math.max(-30, Math.min(90, angle));
+                        angle = Math.max(-30, Math.min(60, angle));
                         liveElevation = angle;
                         state.elevation = Math.round(liveElevation);
                         updateDisplay();
@@ -887,7 +830,7 @@ export const VIEWER_HTML = `
             if (data.type === 'INIT') {
                 state.azimuth = data.horizontal || 0;
                 state.elevation = data.vertical || 0;
-                state.distance = data.zoom || 5;
+                state.distance = data.zoom || 5.0;
                 if (threeScene) {
                     threeScene.syncFromState();
                     threeScene.setCameraView(data.cameraView || false);
@@ -895,8 +838,7 @@ export const VIEWER_HTML = `
             } else if (data.type === 'SYNC_ANGLES') {
                 state.azimuth = data.horizontal || 0;
                 state.elevation = data.vertical || 0;
-                state.distance = data.zoom || 5;
-                state.useDefaultPrompts = data.useDefaultPrompts || false;
+                state.distance = data.zoom || 5.0;
                 if (threeScene) {
                     threeScene.syncFromState();
                     threeScene.setCameraView(data.cameraView || false);

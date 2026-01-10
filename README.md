@@ -6,12 +6,11 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
 
 - **Interactive 3D Camera Control** - Drag handles in the Three.js viewport to adjust:
   - Horizontal angle (azimuth): 0° - 360°
-  - Vertical angle (elevation): -30° to 90°
+  - Vertical angle (elevation): -30° to 60°
   - Zoom level: 0 - 10
 - **Real-time Preview** - Connect an image input to see it displayed in the 3D scene as a card with proper color rendering
 - **Camera View Mode** - Toggle `camera_view` to preview the scene from the camera indicator's perspective
-- **Prompt Output** - Outputs descriptive camera angle prompts
-- **Default Prompts** - Toggle `default_prompts` to switch between detailed and Qwen-style prompt formats
+- **Prompt Output** - Outputs formatted prompts compatible with [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)
 - **Bidirectional Sync** - Slider widgets and 3D handles stay synchronized
 
 ## Installation
@@ -38,17 +37,16 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
    - Dragging the colored handles in the 3D viewport
    - Using the slider widgets
 4. Toggle `camera_view` to see the preview from the camera's perspective
-5. Toggle `default_prompts` to use Qwen-style prompt format
-6. The node outputs a prompt string describing the camera angle
+5. The node outputs a prompt string describing the camera angle
 
 ### Widgets
 
 | Widget | Type | Description |
 |--------|------|-------------|
 | horizontal_angle | Slider | Camera azimuth angle (0° - 360°) |
-| vertical_angle | Slider | Camera elevation angle (-30° to 90°) |
+| vertical_angle | Slider | Camera elevation angle (-30° to 60°) |
 | zoom | Slider | Camera distance/zoom level (0 - 10) |
-| default_prompts | Checkbox | Use Qwen-style prompt format |
+| default_prompts | Checkbox | **Deprecated** - Kept for backward compatibility only, has no effect |
 | camera_view | Checkbox | Preview scene from camera's perspective |
 
 ### 3D Viewport Controls
@@ -63,19 +61,24 @@ The image preview displays as a card - front shows the image, back shows a grid 
 
 ### Output Prompt Format
 
-**Default format:**
-```
-{direction}, {elevation}, {shot_type} (horizontal: {h}°, vertical: {v}°, zoom: {z})
-```
+The node outputs prompts in the format required by [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA):
 
-**Qwen format (default_prompts enabled):**
 ```
-{direction} {elevation} {shot_type}
+<sks> {azimuth} {elevation} {distance}
 ```
 
 Examples:
-- Default: `front view, eye level, medium shot (horizontal: 0, vertical: 0, zoom: 5.0)`
-- Qwen: `front view eye-level shot medium shot`
+- `<sks> front view eye-level shot medium shot`
+- `<sks> right side view high-angle shot close-up`
+- `<sks> back-left quarter view low-angle shot wide shot`
+
+#### Supported Values
+
+| Parameter | Values |
+|-----------|--------|
+| Azimuth | `front view`, `front-right quarter view`, `right side view`, `back-right quarter view`, `back view`, `back-left quarter view`, `left side view`, `front-left quarter view` |
+| Elevation | `low-angle shot` (-30°), `eye-level shot` (0°), `elevated shot` (30°), `high-angle shot` (60°) |
+| Distance | `close-up`, `medium shot`, `wide shot` |
 
 ## Credits
 
