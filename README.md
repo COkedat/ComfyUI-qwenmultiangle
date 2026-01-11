@@ -15,7 +15,7 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
   - Elevation: low-angle, eye-level, elevated, high-angle shots
   - Distance: wide shot, medium shot, close-up
 - **Real-time Preview** - Connect an image input to see it displayed in the 3D scene as a card with proper color rendering
-- **Camera View Mode** - Toggle `camera_view` to preview the scene from the camera indicator's perspective
+- **Camera View Mode** - Toggle `camera_view` to preview the scene from the camera indicator's perspective, with interactive orbit controls (drag to rotate, scroll to zoom)
 - **Prompt Output** - Outputs formatted prompts compatible with [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)
 - **Bidirectional Sync** - Slider widgets, 3D handles, and dropdowns stay synchronized
 - **Multi-language Support** - UI labels available in English, Chinese, Japanese, and Korean (auto-detected from ComfyUI settings)
@@ -110,6 +110,24 @@ ComfyUI-qwenmultiangle/
 | Line handle | Gold | Zoom/distance |
 
 The image preview displays as a card - front shows the image, back shows a grid pattern when viewed from behind.
+
+### Camera View Mode Controls
+
+When `camera_view` is enabled, you can interactively control the camera using mouse:
+
+| Action | Control |
+|--------|---------|
+| Drag left/right | Rotate horizontally (azimuth) |
+| Drag up/down | Rotate vertically (elevation) |
+| Scroll up | Zoom in (increase distance) |
+| Scroll down | Zoom out (decrease distance) |
+
+All interactions respect the same limits as the sliders:
+- Azimuth: 0° - 360° (wraps around)
+- Elevation: -30° to 60°
+- Distance: 0 - 10
+
+Changes made via orbit controls automatically sync with the slider widgets.
 
 ### Quick Select Dropdowns
 

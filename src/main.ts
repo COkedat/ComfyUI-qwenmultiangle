@@ -93,6 +93,11 @@ function createCameraWidget(node: QwenMultiangleNode): { widget: DOMWidget } {
     setupWidgetSync('vertical_angle', cameraWidget)
     setupWidgetSync('zoom', cameraWidget)
     setupWidgetSync('camera_view', cameraWidget)
+
+    const cameraViewWidget = node.widgets?.find(w => w.name === 'camera_view')
+    if (cameraViewWidget && Boolean(cameraViewWidget.value)) {
+      cameraWidget.setCameraView(true)
+    }
   }, 100)
 
   // Cleanup on remove

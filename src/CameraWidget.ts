@@ -62,6 +62,13 @@ export class CameraWidget {
   // Camera view mode
   private useCameraView = false
 
+  // Orbit control state (for camera_view mode)
+  private isOrbitDragging = false
+  private orbitStartX = 0
+  private orbitStartY = 0
+  private orbitStartAzimuth = 0
+  private orbitStartElevation = 0
+
   // Animation
   private animationId: number | null = null
   private time = 0
@@ -531,6 +538,8 @@ export class CameraWidget {
 
     canvas.addEventListener('touchend', () => this.onPointerUp())
 
+    canvas.addEventListener('wheel', this.onWheel.bind(this), { passive: false })
+
     // Resize observer
     const resizeObserver = new ResizeObserver(() => {
       this.onResize()
@@ -551,6 +560,17 @@ export class CameraWidget {
 
   private onPointerDown(event: MouseEvent): void {
     this.getMousePos(event)
+
+    if (this.useCameraView) {
+      this.isOrbitDragging = true
+      this.orbitStartX = event.clientX
+      this.orbitStartY = event.clientY
+      this.orbitStartAzimuth = this.liveAzimuth
+      this.orbitStartElevation = this.liveElevation
+      this.renderer.domElement.style.cursor = 'grabbing'
+      return
+    }
+
     this.raycaster.setFromCamera(this.mouse, this.camera)
 
     const handles = [
@@ -572,6 +592,32 @@ export class CameraWidget {
 
   private onPointerMove(event: MouseEvent): void {
     this.getMousePos(event)
+
+    if (this.useCameraView && this.isOrbitDragging) {
+      const deltaX = event.clientX - this.orbitStartX
+      const deltaY = event.clientY - this.orbitStartY
+
+      const sensitivity = 0.5
+
+      let newAzimuth = this.orbitStartAzimuth - deltaX * sensitivity
+
+      while (newAzimuth < 0) newAzimuth += 360
+      while (newAzimuth >= 360) newAzimuth -= 360
+      this.liveAzimuth = newAzimuth
+      this.state.azimuth = Math.round(this.liveAzimuth)
+
+      let newElevation = this.orbitStartElevation + deltaY * sensitivity
+
+      newElevation = Math.max(-30, Math.min(60, newElevation))
+      this.liveElevation = newElevation
+      this.state.elevation = Math.round(this.liveElevation)
+
+      this.updateVisuals()
+      this.updateDisplay()
+      this.notifyStateChange()
+      return
+    }
+
     this.raycaster.setFromCamera(this.mouse, this.camera)
 
     if (!this.isDragging) {
@@ -643,6 +689,12 @@ export class CameraWidget {
   }
 
   private onPointerUp(): void {
+    if (this.isOrbitDragging) {
+      this.isOrbitDragging = false
+      this.renderer.domElement.style.cursor = this.useCameraView ? 'grab' : 'default'
+      return
+    }
+
     if (this.isDragging) {
       const handles = [
         { mesh: this.azimuthHandle, glow: this.azGlow },
@@ -655,6 +707,24 @@ export class CameraWidget {
     this.isDragging = false
     this.dragTarget = null
     this.renderer.domElement.style.cursor = 'default'
+  }
+
+  private onWheel(event: WheelEvent): void {
+    if (!this.useCameraView) return
+
+    event.preventDefault()
+
+    const sensitivity = 0.01
+
+    let newDistance = this.liveDistance - event.deltaY * sensitivity
+
+    newDistance = Math.max(0, Math.min(10, newDistance))
+    this.liveDistance = newDistance
+    this.state.distance = Math.round(this.liveDistance * 10) / 10
+
+    this.updateVisuals()
+    this.updateDisplay()
+    this.notifyStateChange()
   }
 
   private onResize(): void {
@@ -838,6 +908,8 @@ export class CameraWidget {
 
   public setCameraView(enabled: boolean): void {
     this.useCameraView = enabled
+    this.isOrbitDragging = false
+
     if (this.useCameraView) {
       this.activeCamera = this.previewCamera
       this.azimuthRing.visible = false
@@ -854,6 +926,7 @@ export class CameraWidget {
       this.glowRing.visible = false
       this.gridHelper.visible = false
       this.imageFrame.visible = false
+      this.renderer.domElement.style.cursor = 'grab'
     } else {
       this.activeCamera = this.camera
       this.azimuthRing.visible = true
@@ -870,6 +943,8 @@ export class CameraWidget {
       this.glowRing.visible = true
       this.gridHelper.visible = true
       this.imageFrame.visible = true
+      // Reset cursor
+      this.renderer.domElement.style.cursor = 'default'
     }
   }
 

@@ -20475,6 +20475,12 @@ class CameraWidget {
     __publicField(this, "mouse", new Vector2());
     // Camera view mode
     __publicField(this, "useCameraView", false);
+    // Orbit control state (for camera_view mode)
+    __publicField(this, "isOrbitDragging", false);
+    __publicField(this, "orbitStartX", 0);
+    __publicField(this, "orbitStartY", 0);
+    __publicField(this, "orbitStartAzimuth", 0);
+    __publicField(this, "orbitStartElevation", 0);
     // Animation
     __publicField(this, "animationId", null);
     __publicField(this, "time", 0);
@@ -20858,6 +20864,7 @@ class CameraWidget {
       this.onPointerMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
     }, { passive: false });
     canvas.addEventListener("touchend", () => this.onPointerUp());
+    canvas.addEventListener("wheel", this.onWheel.bind(this), { passive: false });
     const resizeObserver = new ResizeObserver(() => {
       this.onResize();
     });
@@ -20874,6 +20881,15 @@ class CameraWidget {
   }
   onPointerDown(event) {
     this.getMousePos(event);
+    if (this.useCameraView) {
+      this.isOrbitDragging = true;
+      this.orbitStartX = event.clientX;
+      this.orbitStartY = event.clientY;
+      this.orbitStartAzimuth = this.liveAzimuth;
+      this.orbitStartElevation = this.liveElevation;
+      this.renderer.domElement.style.cursor = "grabbing";
+      return;
+    }
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const handles = [
       { mesh: this.azimuthHandle, glow: this.azGlow, name: "azimuth" },
@@ -20892,6 +20908,24 @@ class CameraWidget {
   }
   onPointerMove(event) {
     this.getMousePos(event);
+    if (this.useCameraView && this.isOrbitDragging) {
+      const deltaX = event.clientX - this.orbitStartX;
+      const deltaY = event.clientY - this.orbitStartY;
+      const sensitivity = 0.5;
+      let newAzimuth = this.orbitStartAzimuth - deltaX * sensitivity;
+      while (newAzimuth < 0) newAzimuth += 360;
+      while (newAzimuth >= 360) newAzimuth -= 360;
+      this.liveAzimuth = newAzimuth;
+      this.state.azimuth = Math.round(this.liveAzimuth);
+      let newElevation = this.orbitStartElevation + deltaY * sensitivity;
+      newElevation = Math.max(-30, Math.min(60, newElevation));
+      this.liveElevation = newElevation;
+      this.state.elevation = Math.round(this.liveElevation);
+      this.updateVisuals();
+      this.updateDisplay();
+      this.notifyStateChange();
+      return;
+    }
     this.raycaster.setFromCamera(this.mouse, this.camera);
     if (!this.isDragging) {
       const handles = [
@@ -20955,6 +20989,11 @@ class CameraWidget {
     }
   }
   onPointerUp() {
+    if (this.isOrbitDragging) {
+      this.isOrbitDragging = false;
+      this.renderer.domElement.style.cursor = this.useCameraView ? "grab" : "default";
+      return;
+    }
     if (this.isDragging) {
       const handles = [
         { mesh: this.azimuthHandle, glow: this.azGlow },
@@ -20966,6 +21005,18 @@ class CameraWidget {
     this.isDragging = false;
     this.dragTarget = null;
     this.renderer.domElement.style.cursor = "default";
+  }
+  onWheel(event) {
+    if (!this.useCameraView) return;
+    event.preventDefault();
+    const sensitivity = 0.01;
+    let newDistance = this.liveDistance - event.deltaY * sensitivity;
+    newDistance = Math.max(0, Math.min(10, newDistance));
+    this.liveDistance = newDistance;
+    this.state.distance = Math.round(this.liveDistance * 10) / 10;
+    this.updateVisuals();
+    this.updateDisplay();
+    this.notifyStateChange();
   }
   onResize() {
     const w = this.canvasContainer.clientWidth;
@@ -21112,6 +21163,7 @@ class CameraWidget {
   }
   setCameraView(enabled) {
     this.useCameraView = enabled;
+    this.isOrbitDragging = false;
     if (this.useCameraView) {
       this.activeCamera = this.previewCamera;
       this.azimuthRing.visible = false;
@@ -21128,6 +21180,7 @@ class CameraWidget {
       this.glowRing.visible = false;
       this.gridHelper.visible = false;
       this.imageFrame.visible = false;
+      this.renderer.domElement.style.cursor = "grab";
     } else {
       this.activeCamera = this.camera;
       this.azimuthRing.visible = true;
@@ -21144,6 +21197,7 @@ class CameraWidget {
       this.glowRing.visible = true;
       this.gridHelper.visible = true;
       this.imageFrame.visible = true;
+      this.renderer.domElement.style.cursor = "default";
     }
   }
   updateImage(url) {
@@ -21222,13 +21276,14 @@ function createCameraWidget(node) {
     }
   );
   setTimeout(() => {
+    var _a;
     const cameraWidget = new CameraWidget({
       node,
       container,
       initialState,
       onStateChange: (state) => {
-        var _a, _b, _c, _d;
-        const hWidget = (_a = node.widgets) == null ? void 0 : _a.find((w) => w.name === "horizontal_angle");
+        var _a2, _b, _c, _d;
+        const hWidget = (_a2 = node.widgets) == null ? void 0 : _a2.find((w) => w.name === "horizontal_angle");
         const vWidget = (_b = node.widgets) == null ? void 0 : _b.find((w) => w.name === "vertical_angle");
         const zWidget = (_c = node.widgets) == null ? void 0 : _c.find((w) => w.name === "zoom");
         if (hWidget) {
@@ -21245,8 +21300,8 @@ function createCameraWidget(node) {
     });
     widgetInstances.set(node.id, cameraWidget);
     const setupWidgetSync = (widgetName, cam) => {
-      var _a;
-      const w = (_a = node.widgets) == null ? void 0 : _a.find((widget2) => widget2.name === widgetName);
+      var _a2;
+      const w = (_a2 = node.widgets) == null ? void 0 : _a2.find((widget2) => widget2.name === widgetName);
       if (w) {
         const origCallback = w.callback;
         w.callback = (value) => {
@@ -21269,6 +21324,10 @@ function createCameraWidget(node) {
     setupWidgetSync("vertical_angle", cameraWidget);
     setupWidgetSync("zoom", cameraWidget);
     setupWidgetSync("camera_view", cameraWidget);
+    const cameraViewWidget = (_a = node.widgets) == null ? void 0 : _a.find((w) => w.name === "camera_view");
+    if (cameraViewWidget && Boolean(cameraViewWidget.value)) {
+      cameraWidget.setCameraView(true);
+    }
   }, 100);
   widget.onRemove = () => {
     const cameraWidget = widgetInstances.get(node.id);
